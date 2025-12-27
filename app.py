@@ -5,8 +5,13 @@ import os
 
 app = Flask(__name__)
 
-# Load the trained model
-model = joblib.load('heart_disease_model.pkl')
+# Load model
+model = None
+try:
+    model = joblib.load('heart_disease_model.pkl')
+    print("✅ Model loaded successfully")
+except Exception as e:
+    print(f"❌ Error loading model: {e}")
 
 @app.route('/')
 def home():
@@ -15,19 +20,22 @@ def home():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
+        if model is None:
+            return jsonify({'success': False, 'error': 'Model not loaded'})
+        
         # Get form data
         data = request.form
         
-        # Create DataFrame
+        # Prepare input data
         input_data = pd.DataFrame([[
-            float(data['age']),
+            int(data['age']),
             data['sex'],
             data['chestPainType'],
-            float(data['restingBP']),
-            float(data['cholesterol']),
+            int(data['restingBP']),
+            int(data['cholesterol']),
             int(data['fastingBS']),
             data['restingECG'],
-            float(data['maxHR']),
+            int(data['maxHR']),
             data['exerciseAngina'],
             float(data['oldpeak']),
             data['stSlope']
@@ -44,18 +52,19 @@ def predict():
             'prediction': prediction,
             'probability': probability,
             'risk': 'High' if prediction == 1 else 'Low',
-            'message': 'Consult a doctor!' if prediction == 1 else 'Low risk detected.'
+            'message': 'High risk detected. Consult a doctor.' if prediction == 1 else 'Low risk. Maintain healthy lifestyle.'
         })
         
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        })
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/health')
 def health():
-    return jsonify({'status': 'healthy'})
+    return jsonify({
+        'status': 'healthy',
+        'model_loaded': model is not None,
+        'python_version': os.sys.version
+    })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
